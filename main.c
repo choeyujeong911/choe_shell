@@ -8,114 +8,74 @@
 #include <sys/types.h>
 #include "mysh.h"
 
-#define PURPLE "\033[0;35m" 
-#define RED "\033[0;31m"
-#define YELLOW "\033[0;33m"
-#define BLUE "\033[0;36m"
-#define WHITE "\033[0;37m"
 #define MAX 255
+#define NUM_OF_CMDS 12
 
 char cBuf[MAX], hBuf[MAX], uBuf[MAX], dBuf[MAX];
-/*
-void* prompt(char cBuf[]) {
-	char hBuf[MAX], uBuf[MAX], dBuf[MAX];
-	char* now;
-	void* ret;
 
-	gethostname(hBuf, MAX);
-	getlogin_r(uBuf, MAX);
-	getcwd(dBuf, MAX);
-
-
-
-	return ret;
-}
-*/
-
-int main(int argc, char** argv) {
+int main() {
 
 	/* Declare Vars */
-	// char cBuf[MAX];
-	char *arg;
-	void *full_command; 
-	pid_t pid;
-	int status;
+	void *command_line;	// Full command line
+	pid_t pid;			// Process number
 	char path[BUFSIZ];	// Now path
-	struct passwd *pwd;	// User info
+	char **commands = { "ls", "cd", "pwd", "cp", "mv", "rm", "mkdir", "rmdir", "touch", "cat", "grep", "echo", "ps", "kill", "chmod", "chown", "history", "man", "df", "du", "find", "diff" };	// List of my all commands
 	
-	/* Consider Exceptions of Input Command  */
-
-	/* Define Each Vars as value */
-	if((pwd = getpwuid(getuid())) == NULL) {
-		if(errno == 0 || errno == ENOENT || errno == ESRCH || errno == EBADF || errno == EPERM) {
-			printf("%sUndeclared User%s\n", RED, WHITE);
-			return 1;
-		}
-		else {
-			printf("%sError: %s%s\n", RED, strerror(errno), WHITE);
-			return 1;
-		}
-	}
-
-	gethostname(hBuf, MAX);
-	getlogin_r(uBuf, MAX);
-	getcwd(dBuf, MAX);
-
+	/* Start shell */
 	while(1) {
-		// 쉘 앞부분 출력
+		char* wait_test;
+		gets(cBuf);
+
+		/* Update(Get) info to print in shell */
+		gethostname(hBuf, MAX);	// Device host name
+		getlogin_r(uBuf, MAX);	// Login user name
+		getcwd(dBuf, MAX);		// Forcused path
+		
+		/* Initialize parts */
+		char *command = NULL;	// ex) ls
+		char **val = { ".", };		// ex) /bin
+		char *opt = NULL;		// ex) -al
+		int cmd_index = -1;		// ex) 0
+		int j = 0;
+
+		/* Put one command line to cBuf and copy to command_line */
 		printf("%s%s@%s%s:%s%s%s$ ", PURPLE, hBuf, uBuf, WHITE, BLUE, dBuf, WHITE);
-		// cBuf에 명령어 입력받기
-		full_command = fgets(cBuf, MAX, stdin);
-		// 명령어의 끝이 엔터라면(명령어 입력이 끝났다면)
+		command_line = fgets(cBuf, MAX, stdin);
+		// When command writing finish
 		if(cBuf[strlen(cBuf) - 1] == '\n') cBuf[strlen(cBuf) - 1] = '\0';
-		printf("cBuf: %s.end.\n", cBuf);
-		if(strcmp(cBuf, "switch") == 0) {
-			printf("cBuf is switch.\n");
+		command_line = cBuf;
+		// Divide full command into command part, path part, and option part
+		char *tmp = strtok(command_line, " ");
+		while(tmp != NULL) {
+			tmp = strtok(NULL, " ");
+			for(int i = 0; i < NUM_OF_CMDS; i++) { 
+				if(strstr(tmp, commands[i]) != NULL) command = tmp; 
+			}
+			if(strchr(tmp, '-') != NULL && strchr(tmp, '/') == NULL) opt = tmp;
+			else { val[j] = tmp; j++; }
+		}
+		tmp = NULL;	// Delete tmp
+
+		/* Excute command */
+		if(strcmp(command, "switch") == 0) {	// When user wants to switch shell to bash
 			execl("/bin/bash", "bash", (char*) NULL);
 			perror("Exec Failed");
 			exit(EXIT_FAILURE);
-			printf("This line should not be reached.\n");
 		}
-		// else if(strcmp(cBuf, "exit") == 0) break;
-		else {
+		else {	// When command is implemented command
 			pid = fork();
 			if(pid < 0) { perror("Fork Failed"); exit(EXIT_FAILURE); }
-			// 명령어 실행
+			/* if-else execution */
 			else if(pid == 0) { 
-				execlp(cBuf, cBuf, (char*) NULL);
-			 // 	if(strcmp(
-				perror("Exec Failed"); 
-				exit(EXIT_FAILURE); 
+				switch(cmd_index) {
+					case 0: _ls(val[0], opt); printf("case 0\n"); gets(wait_test); break;
+					case 1: _cd(val[0]); printf("case 1\n"); gets(wait_test); break;
+					default: printf("%sNo Such Command: %s%s\n", RED, command, WHITE); gets(wait_test);
+				}
 			}
 			else waitpid(pid, NULL, 0);
+			gets(wait_test);
 		}
 	}
-	printf("Out of while\n");
 	return 0;
 }
-	
-	/* Put Command and Execute */
-	/*while(prompt(cBuf)) {
-		// getcwd(path, BUFSIZ);
-		if((pid = fork()) < 0) perror("Fork Error\n");
-
-		if(strcmp(cBuf, "exit") == 0) exit(0);
-		else if(pid == 0) {
-			strtok(cBuf, " ");
-			arg = strtok(NULL, " ");
-
-			if(arg == NULL) execlp(cBuf, cBuf, (char*) 0);
-			else {
-				if(strcmp(cBuf, "cd") == 0) {
-					_cd("/env/");
-					chdir(arg);
-					_exit(0);
-				}
-				else execlp(cBuf, cBuf, arg, (char*) 0);
-			}
-			perror("Couldn't execute\n");
-		}
-		waitpid(pid, &status, 0);
-	}
-	exit(0);
-}*/
